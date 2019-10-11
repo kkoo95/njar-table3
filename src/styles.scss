@@ -1,0 +1,103 @@
+/* Add application styles & imports to this file! */
+@import url('https://stackpath.bootstrapcdn.com/font-awesome/4.7.0/css/font-awesome.min.css');
+@import "~@ng-select/ng-select/themes/default.theme.css";
+
+html {
+  font-size: 14px;
+}
+
+.actions {
+  width: 0px;
+  text-align: right;
+}
+
+.pagination {
+  margin-bottom: 0;
+}
+
+.transparent {
+  opacity: 0.15;
+}
+
+.table-menu {
+  text-align: right;
+
+  .dropdown {
+    position: static;
+  }
+}
+
+.popup-menu {
+    cursor: pointer;
+    background-color: #fff;
+    color: #000;
+    padding: 0;
+    border-radius: 2px;
+    box-shadow: 0 5px 5px -4px rgba(156, 156, 156, 0.2), 0 8px 10px 1px rgba(95, 86, 103, 0.1), 0 0px 14px 2px rgba(22, 7, 56, 0.1);
+    animation: show-menu 150ms cubic-bezier(0.4, 0, 0.2, 1) 0ms;
+}
+.popup-menu li {
+    line-height: initial;
+    position: relative;
+    list-style-type: none;
+    padding: 0;
+} 
+.popup-menu li:not(:first-of-type) {
+    border-top: solid 1px #e8e7ed;
+}
+.popup-menu li>span {
+    padding: 8px 60px 8px 20px;
+    display: block;
+}
+.popup-menu li:hover {
+    background-color: #f5f5f7;
+    border-top-color: #f5f5f7;
+}
+.popup-menu li:hover+li {
+    border-top-color: #f5f5f7;
+}
+.popup-menu li.disabled {
+    color: rgba(0,0,0,.2);
+    cursor: default;
+    pointer-events: none;
+} 
+.popup-menu li.disabled:hover {
+    background-color: transparent;
+}
+       
+
+@keyframes show-menu {
+    0% {
+        opacity: 0;
+        transform: translateY(10px);
+    }
+    100% {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+.ghost {
+  opacity: 0.5;
+}
+
+body, li {
+  background: #222;
+  color: white;
+}
+
+.toggled {
+  background-color: #000;
+}
+
+.toolbar {
+  margin-top: -0.5rem;
+
+  .col, [class*="col-"] {
+    margin-top: 0.5rem;
+  }
+}
+
+.age-input {
+  width: 4rem;
+}

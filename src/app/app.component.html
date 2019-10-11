@@ -1,0 +1,52 @@
+<main class="container-fluid mt-3">
+	<div class="h4 display-sm-4"><span>Test Tables</span></div>
+
+	<section class="toolbar form-group">
+		<div class="form-row align-items-center">
+			<span class="col-auto">Filtre:</span>
+      <div class="col-2">
+        <input class="form-control form-control-sm" [(ngModel)]="filter" piAutofocus="filterText"/>
+      </div>
+ 
+      <span class="col-auto">Data:</span>
+      <div class="col-auto btn-group">
+        <button class="btn btn-info btn-sm d-inline-block" (click)="changeSort()">Sort</button>
+        <button class="btn btn-info btn-sm d-inline-block" (click)="rollData()">Roll</button>
+        <button class="btn btn-info btn-sm d-inline-block" (click)="nextSliceData()">Slice</button>
+        <button class="btn btn-info btn-sm d-inline-block" (click)="oneThirdData()">1/3</button>
+        <button class="btn btn-info btn-sm d-inline-block" (click)="twoThirdData()">2/3</button>
+        <button class="btn btn-info btn-sm d-inline-block" (click)="allData()">All</button>
+        <button class="btn btn-info btn-sm d-inline-block">
+          <label class="align-items-center d-flex m-0">
+              <input class="mr-1" type="checkbox" [(ngModel)]="duplicateData"> Clone
+          </label>
+         </button>
+      </div>
+
+      <div class="col-auto"><div class="row no-gutters">
+        <span class="col-auto">Page:</span>
+        <div class="col-2 mx-2">
+          <input type="number" class="form-control form-control-sm" [(ngModel)]="page" min="-1" [max]="pageCount"/>
+        </div>
+        <span class="col-auto">/ {{ pageCount }}</span>
+        <span class="col-auto ml-3">Items:</span>
+        <div class="col-2 mx-2">
+          <input type="number" class="form-control form-control-sm" [(ngModel)]="pageSize" min="0"/>
+        </div>
+      </div></div>
+
+		</div>
+	</section>
+
+  <section>
+    <div class="h4 display-sm-4"><span>List <small>{{sort == 0 ? ' ASC' : (sort == 1 ? ' DESC' : '')}}</small></span></div>
+    <div class="alert alert-secondary alert-dismissible">
+      <span>{{ selectionIds | json }}</span>
+      <button type="button" class="close" aria-label="Close" (click)="selection = null">
+        <span aria-hidden="true">&times;</span>
+      </button>
+    </div>
+
+    <div #t [piTable]="items" [filter]="filter" [sort]="sort" [(selection)]="selection" [trackBy]="trackByFn" [(page)]="page" [pageSize]="pageSize" (pageCountChange)="pageCount = $event"></div>
+  </section>
+</main>
