@@ -28,7 +28,7 @@ export class Row {
   `,
   changeDetection: ChangeDetectionStrategy.OnPush
 })
-export class PiTable implements OnChanges {
+export class PiTable2Component implements OnChanges {
   @Input('piTable')
   items: any[];
   @Input()
@@ -70,38 +70,6 @@ export class PiTable implements OnChanges {
 
   constructor(protected cd: ChangeDetectorRef) {
     this.buildPageInfo();
-  }
-
-  protected buildPageInfo() {
-      let page = this.page != null ? Math.max(this.page, 1) : null;
-      let pageSize = this.pageSize != null ? Math.max(this.pageSize, 0) : null;
-      let disabled = page == null || page < 0 || pageSize == null;
-      let minIndex = disabled ? 0 : (page - 1) * pageSize;
-      let maxIndex = disabled ? null : minIndex + pageSize;
-
-      this.pageInfo = {
-        disabled,
-        page,
-        pageSize,
-        minIndex,
-        maxIndex,
-        inRange: (idx: number) => minIndex <= idx && (!maxIndex || idx < maxIndex)
-      }
-  } 
-
-  get displayedRowCount() {
-    return this.displayIndices ? this.displayIndices.size : this.rows.length;
-  }
-
-  protected updatePageCount() {
-    if (!this.pageInfo.disabled) {
-      this._pageCount = this.getPageForIndex(this.displayedRowCount);
-      this.pageCountChange.emit(this.pageCount);
-    }
-  }
-
-  protected getPageForIndex(idx: number) {
-    return idx == 0 ? 1 : Math.ceil(idx / this.pageSize);
   }
 
   ngOnChanges(changes: SimpleChanges) {
@@ -156,8 +124,40 @@ export class PiTable implements OnChanges {
     return type in this.tasks;
   }
 
+  get displayedRowCount() {
+    return this.displayIndices ? this.displayIndices.size : this.rows.length;
+  }
+  
+  protected buildPageInfo() {
+      let page = this.page != null ? Math.max(this.page, 1) : null;
+      let pageSize = this.pageSize != null ? Math.max(this.pageSize, 0) : null;
+      let disabled = page == null || page < 0 || pageSize == null;
+      let minIndex = disabled ? 0 : (page - 1) * pageSize;
+      let maxIndex = disabled ? null : minIndex + pageSize;
+
+      this.pageInfo = {
+        disabled,
+        page,
+        pageSize,
+        minIndex,
+        maxIndex,
+        inRange: (idx: number) => minIndex <= idx && (!maxIndex || idx < maxIndex)
+      }
+  } 
+
+  protected updatePageCount() {
+    if (!this.pageInfo.disabled) {
+      this._pageCount = this.getPageForIndex(this.displayedRowCount);
+      this.pageCountChange.emit(this.pageCount);
+    }
+  }
+
+  protected getPageForIndex(idx: number) {
+    return idx == 0 ? 1 : Math.ceil(idx / this.pageSize);
+  }
+
   protected prepareStickySelection() {
-    if (this.stickySelection && this.rows && !this.pageInfo.disabled) {
+    if (this.stickySelection && this.rows && this.displayIndices && !this.pageInfo.disabled) {
       if (this.displayedRowCount > 0) {
         this.stickyItem = null;
       }
