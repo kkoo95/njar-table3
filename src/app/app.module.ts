@@ -6,11 +6,11 @@ import { NgbModule } from '@ng-bootstrap/ng-bootstrap';
 import { NgSelectModule } from '@ng-select/ng-select';
 
 import { AppComponent } from './app.component';
-import { PiTable } from './table.component';
+import { PiTable2Component } from './table.component';
 
 @NgModule({
   imports:      [ BrowserModule, NgbModule, NgSelectModule, FormsModule, ReactiveFormsModule, BrowserAnimationsModule ],
-  declarations: [ AppComponent, PiTable ],
+  declarations: [ AppComponent, PiTable2Component ],
   bootstrap:    [ AppComponent ]
 })
 export class AppModule { }

@@ -6,10 +6,11 @@ export enum Sort {
 }
 
 export class Row {
-  public templateContext: NgForOfContext<any>;
+  protected _item: any;
+  public templateContext = new NgForOfContext(null, null, null, null);
 
   constructor(
-    public item: any,
+    item: any,
     public index: number = null,
     public content: string = null,
     public matched = false,
@@ -17,7 +18,15 @@ export class Row {
     public selected = false,
     public anchor = false,
   ) {
-    this.templateContext = new NgForOfContext(item, null, null, null);
+    this.item = item;
+  }
+
+  get item() {
+    return this.templateContext.$implicit;
+  }
+
+  set item(value: any) {
+    this.templateContext.$implicit = value;
   }
 }
 
@@ -203,8 +212,8 @@ export class PiTable2Component implements OnChanges {
         }
       }
       else {
-        let finder = this.elementPredicate(this.stickyItem);
-        let stickyIndex = this.displayIndices.get(this.rows.findIndex(r => finder(r.item)));
+        let predicate = this.elementPredicate(this.stickyItem);
+        let stickyIndex = this.displayIndices.get(this.rows.findIndex(r => predicate(r.item)));
 
         if (stickyIndex != null) {
           this.gotoIndex(stickyIndex);
@@ -218,8 +227,23 @@ export class PiTable2Component implements OnChanges {
     this.prepareStickySelection();
 
     let items = this.items || [];
+    
+    this.rows = items.map((it, i) => {
+      let row: Row;
+      let predicate = this.elementPredicate(it);
+      let oldRow = this.rows ? this.rows.find(r => predicate(r.item)) : null;
 
-    this.rows = items.map((it, i) => new Row(it, i));
+      if (oldRow == null) {
+        row = new Row(it, i)
+      }
+      else {
+        row = oldRow;
+        row.index = i;
+        row.item = it;
+      }
+
+      return row;
+    });
     this.displayIndices = null;
     this.updatePageCount();
 
@@ -285,8 +309,6 @@ export class PiTable2Component implements OnChanges {
     this.cd.detectChanges();
   }
 
-// TODO recycle Rows + NgForOfContext
-
   protected renderPage() {
     let displayIndicesArr = Array.from(this.displayIndices.keys());
 
@@ -301,13 +323,13 @@ export class PiTable2Component implements OnChanges {
 
       row.paged = paged;
 
-      if (!paged) {
-        row.templateContext = null;
-      }
-      else {
+      // if (!paged) {
+      //   row.templateContext = null;
+      // }
+      // else {
         row.templateContext.index = pagedIndex;
         row.templateContext.count = displayIndicesArr.length;
-      }
+      // }
     })
 
     this.cd.detectChanges();
