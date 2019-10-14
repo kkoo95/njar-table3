@@ -47,9 +47,10 @@
       </button>
     </div>
 
-    <div #t [piTable2]="items" [filter]="filter" [sort]="sort" [(selection)]="selection" [trackBy]="trackByFn" [(page)]="page" [pageSize]="pageSize" (pageCountChange)="pageCount = $event">
+    <div #t [piTable2]="items" [filter]="filter" [sort]="sort" [(selection)]="selection" [trackBy]="trackByFn" [(page)]="page" [pageSize]="pageSize" (pageCountChange)="pageCount = $event"
+      class="d-inline-block">
       <ng-template #piTableRowTemplate let-item let-c="count" let-i="index" ngPreserveWhitespaces>
-        <small>({{i}} {{c}})</small> <button class="btn p-0 btn-link">{{item.name.first}} <small>[{{item.index}}]</small></button>
+        <small>({{i}} {{c}})</small> <span class="">{{item.name.first}} <small>[{{item.index}}]</small></span>
       </ng-template>
     </div>
   </section>

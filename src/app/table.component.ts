@@ -34,8 +34,12 @@ export class Row {
   selector: '[piTable2]',
   template: `
     <ul>
-      <li *ngFor="let row of rows; index as i; trackBy: trackByFn" [hidden]="!row.paged" #rowEl [class.text-danger]="row.anchor"
-        [class.text-success]="row.selected" (click)="toggleRowsSelection(row)">
+      <li #rowEl *ngFor="let row of rows; index as i; trackBy: trackByFn"
+        [hidden]="!row.paged"
+        [class.clickable]="selectable"
+        [class.text-success]="row.selected"
+        [class.text-danger]="row.anchor"
+        (click)="toggleRowsSelection(row)">
           <ng-container [ngTemplateOutlet]="rowTemplate" [ngTemplateOutletContext]="row.templateContext"></ng-container>
       </li>
     </ul>
@@ -63,6 +67,8 @@ export class PiTable2Component implements OnChanges {
   stickySelection = true;
   @Input()
   alwaysOneSelection = false;
+  @Input()
+  keepSelection = false;
   @Input('trackBy')
   trackByFn: TrackByFunction<any> = null;
 
@@ -71,7 +77,7 @@ export class PiTable2Component implements OnChanges {
   @Output()
   pageCountChange = new EventEmitter<number>(true)
   @Output()
-  selectionChange = new EventEmitter<any[]>()
+  selectionChange = new EventEmitter<any[]>(true)
 
   rows: Row[];
   protected _pageCount: number;
@@ -206,23 +212,38 @@ export class PiTable2Component implements OnChanges {
 
   protected stickToSelection() {
     if (!this.pagingDisabled) {
-      if (this.stickyItem == null) {
-        if (this.page > this._pageCount) {
-          this.gotoIndex(this.displayedRowCount);
-        }
-      }
-      else {
-        let predicate = this.elementPredicate(this.stickyItem);
-        let stickyIndex = this.displayIndices.get(this.rows.findIndex(r => predicate(r.item)));
+      let stickyIndex;
 
-        if (stickyIndex != null) {
-          this.gotoIndex(stickyIndex);
-          this.stickyItem = null;
-        }
+      if (this.stickyItem != null) {
+        let predicate = this.elementPredicate(this.stickyItem);
+        stickyIndex = this.displayIndices.get(this.rows.findIndex(r => predicate(r.item)));
+      }
+
+      if (stickyIndex != null) {
+        this.stickyItem = null;
+      }
+      else if (this.page > this._pageCount) {
+        stickyIndex = this.displayedRowCount;
+      }
+
+      if (stickyIndex != null) {
+        this.gotoIndex(stickyIndex);
       }
     }
   }
 
+  protected cleanSelection(lookupArray: any[]) {
+      if (this.hasSelection) {
+          let newSelection = this.selection.filter(selected => {
+              return this.findIndexIn(lookupArray, selected) !== -1
+          });
+
+          if (newSelection.length !== this.selection.length) {
+              this.selection = newSelection;
+          }
+      }
+  }
+  
   protected rebuildRows() {
     this.prepareStickySelection();
 
@@ -264,7 +285,7 @@ export class PiTable2Component implements OnChanges {
   protected renderFiltered() {
     let term = this.filter ? this.filter.toLowerCase() : null;
     let displayIndices = new Map();
-    
+
     this.rows.forEach((row, i) => {
       row.matched = !term || row.content.toLowerCase().match(term) != null;
 
@@ -276,6 +297,20 @@ export class PiTable2Component implements OnChanges {
     this.displayIndices = displayIndices;
     this.updatePageCount();
     this.stickToSelection();
+    
+    if (this.hasSelection) {
+      let newSelection = this.selection.filter(it => {
+        let predicate = this.elementPredicate(it);
+        return this.rows.find(r => {
+          return (!this.keepSelection ? r.matched : true) && predicate(r.item);
+        }) != null;
+      })
+      
+      if (newSelection.length != this.selection.length) {
+        this.selection = newSelection;
+        this.selectionChange.emit(newSelection);
+      }
+    }
 
     this.schedule('page', this.renderPage);
     this.cd.detectChanges();
@@ -292,7 +327,7 @@ export class PiTable2Component implements OnChanges {
   }
 
   protected renderSelection() {
-    let hasSelection = this.selection && this.selection.length > 0;
+    let hasSelection = this.hasSelection;
 
     this.rows.forEach((row, rowIdx) => {
       let idx = !hasSelection ? -1 : this.findIndexIn(this.selection, row.item);
@@ -385,6 +420,10 @@ export class PiTable2Component implements OnChanges {
     return this.pageInfo.disabled;
   }
 
+  get hasSelection(): boolean {
+      return this.selection != null && this.selection.length > 0
+  }
+  
   get pageCount() {
     return this._pageCount;
   }
