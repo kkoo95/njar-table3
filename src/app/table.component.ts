@@ -58,6 +58,8 @@ export class PiTable2Component implements OnChanges {
   @Input()
   pageSize: number = 10;
   @Input()
+  keepPage = true;
+  @Input()
   selectable = true;
   @Input()
   selection: any[];
@@ -180,7 +182,7 @@ export class PiTable2Component implements OnChanges {
   }
 
   protected getPageForIndex(idx: number) {
-    return idx == 0 ? 1 : Math.ceil(idx / this.pageSize);
+    return Math.ceil((idx + 1) / this.pageSize);
   }
 
   protected prepareStickySelection() {
@@ -221,6 +223,9 @@ export class PiTable2Component implements OnChanges {
 
       if (stickyIndex != null) {
         this.stickyItem = null;
+      }
+      else if (!this.keepPage) {
+        stickyIndex = 0;
       }
       else if (this.page > this._pageCount) {
         stickyIndex = this.displayedRowCount;
