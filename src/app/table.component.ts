@@ -2,7 +2,7 @@ import { Attribute, Directive, ElementRef, Input, Renderer2, TemplateRef, ViewCo
 import { NgForOfContext } from "@angular/common";
 
 export enum Sort {
-  ASC = 0, DESC = 1, NONE = 3
+  NONE = 0, ASC = 1, DESC = 2
 }
 
 export class Row {
@@ -11,7 +11,8 @@ export class Row {
 
   constructor(
     item: any,
-    public index: number = null,
+    public actualIndex: number = null,
+    public displayIndex: number = null,
     public content: string = null,
     public matched = false,
     public paged = false,
@@ -22,11 +23,24 @@ export class Row {
   }
 
   get item() {
+    return this._item;
     return this.templateContext.$implicit;
   }
 
   set item(value: any) {
+    this._item = value;
     this.templateContext.$implicit = value;
+  }
+}
+
+export class RowModel {
+  constructor(
+    public rows: Row[] = [],
+    public matchedCount = 0
+  ) {}
+
+  get length() {
+    return this.rows.length;
   }
 }
 
@@ -40,6 +54,7 @@ export class Row {
         [class.text-success]="row.selected"
         [class.text-danger]="row.anchor"
         (click)="toggleRowsSelection(row)">
+          
           <ng-container [ngTemplateOutlet]="rowTemplate" [ngTemplateOutletContext]="row.templateContext"></ng-container>
       </li>
     </ul>
@@ -53,6 +68,8 @@ export class PiTable2Component implements OnChanges {
   filter: string;
   @Input()
   sort: Sort;
+  @Input()
+  sortable = true;
   @Input()
   page: number;
   @Input()
@@ -81,12 +98,11 @@ export class PiTable2Component implements OnChanges {
   @Output()
   selectionChange = new EventEmitter<any[]>(true)
 
-  rows: Row[];
+  protected rowModel = new RowModel();
   protected _pageCount: number;
 
   protected tasks = {};
   // row index => matched index
-  protected displayIndices: Map<number, number>
   protected stickyItem: any;
   protected selectionAnchor: number;
   protected _rowElements: QueryList<ElementRef>
@@ -99,17 +115,31 @@ export class PiTable2Component implements OnChanges {
     window['t'] = this;
   }
 
+  /**
+   * TODO
+   * support columns (
+   *   filter by index, prop, exp (content not only text)
+   *   filterable
+   *   sort by
+   *   sortable
+   * )
+   * columnsConfig
+   * customFilters
+   * menu
+   * disabled flag
+   */
+
   ngOnChanges(changes: SimpleChanges) {
     if (changes.items || changes.filter) {
-      this.rebuildRows();
+      this.fullRebuild();
     }
     if (changes.sort) {
-      if (this.sort == Sort.NONE) {
-        this.rebuildRows();
-      }
-      else {
-        this.schedule('sort', this.renderSort);
-      }
+      this.prepareStickySelection();
+      this.rebuildRows();
+  
+      // this.schedule('filter', this.renderFiltered);
+      this.schedule('sort', this.renderSort);
+      this.schedule('page', this.renderPage);
     }
     if (changes.page || changes.pageSize) {
       this.buildPageInfo();
@@ -131,8 +161,13 @@ export class PiTable2Component implements OnChanges {
     this._rowElements = value;
   }
 
+  get rows() {
+    return this.rowModel.rows;
+  }
+
   protected schedule(type: string, fn: any) {
-    if (type != 'selection' || this.selectable) {
+    if ((type != 'selection' || this.selectable)
+        && (type != 'sort' || this.sortable)) {
       this.tasks[type] = fn.bind(this);
     }
   }
@@ -155,7 +190,7 @@ export class PiTable2Component implements OnChanges {
   }
 
   get displayedRowCount() {
-    return this.displayIndices ? this.displayIndices.size : this.rows.length;
+    return this.rowModel.matchedCount;
   }
   
   protected buildPageInfo() {
@@ -175,10 +210,10 @@ export class PiTable2Component implements OnChanges {
   } 
 
   protected updatePageCount() {
-    if (!this.pagingDisabled) {
-      this._pageCount = this.getPageForIndex(this.displayedRowCount);
-      this.pageCountChange.emit(this.pageCount);
-    }
+    this._pageCount = this.pagingDisabled
+      ? null
+      : this.getPageForIndex(this.displayedRowCount);
+    this.pageCountChange.emit(this.pageCount);
   }
 
   protected getPageForIndex(idx: number) {
@@ -186,28 +221,11 @@ export class PiTable2Component implements OnChanges {
   }
 
   protected prepareStickySelection() {
-    if (this.stickySelection && this.rows && this.displayIndices && !this.pagingDisabled) {
-      if (this.displayedRowCount > 0) {
-        this.stickyItem = null;
-      }
-      
-      if (this.displayedRowCount > 0) {
-        let displayIndices = Array.from(this.displayIndices.keys());
+    if (this.stickySelection && !this.pagingDisabled) {
+      let pagedRow = this.getPagedRows().filter(r => r.anchor)[0];
 
-        for (let i = this.pageInfo.minIndex; i < this.pageInfo.maxIndex; ++i) {
-          let displayIndex = displayIndices[i];
-
-          if (!displayIndex) {
-            // we reached the end of the renderered page
-            break;
-          }
-
-          let pagedRow = this.rows[displayIndex];
-
-          if (pagedRow.anchor) {
-            this.stickyItem = pagedRow.item;
-          }
-        }
+      if (pagedRow) {
+        this.stickyItem = pagedRow.item;
       }
     }
   }
@@ -218,7 +236,7 @@ export class PiTable2Component implements OnChanges {
 
       if (this.stickyItem != null) {
         let predicate = this.elementPredicate(this.stickyItem);
-        stickyIndex = this.displayIndices.get(this.rows.findIndex(r => predicate(r.item)));
+        stickyIndex = this.rowModel.rows.filter(r => predicate(r.item)).map(r => r.displayIndex)[0];
       }
 
       if (stickyIndex != null) {
@@ -237,76 +255,74 @@ export class PiTable2Component implements OnChanges {
     }
   }
 
-  protected cleanSelection(lookupArray: any[]) {
-      if (this.hasSelection) {
-          let newSelection = this.selection.filter(selected => {
-              return this.findIndexIn(lookupArray, selected) !== -1
-          });
-
-          if (newSelection.length !== this.selection.length) {
-              this.selection = newSelection;
-          }
-      }
-  }
-  
-  protected rebuildRows() {
+  protected fullRebuild() {
     this.prepareStickySelection();
-
-    let items = this.items || [];
-    
-    this.rows = items.map((it, i) => {
-      let row: Row;
-      let predicate = this.elementPredicate(it);
-      let oldRow = this.rows ? this.rows.find(r => predicate(r.item)) : null;
-
-      if (oldRow == null) {
-        row = new Row(it, i)
-      }
-      else {
-        row = oldRow;
-        row.index = i;
-        row.item = it;
-      }
-
-      return row;
-    });
-    this.displayIndices = null;
+    this.rebuildRows();
     this.updatePageCount();
-
+ 
     this.schedule('content', this.readContent);
     this.schedule('filter', this.renderFiltered);
     this.schedule('sort', this.renderSort);
     this.schedule('selection', this.renderSelection);
     this.schedule('page', this.renderPage);
   }
+  
+  protected rebuildRows() {
+    let oldRows = this.rowModel.rows;
+
+    this.rowModel = new RowModel();
+    this.rowModel.rows = (this.items || []).map((it, i) => {
+      let row: Row;
+      let predicate = this.elementPredicate(it);
+      let oldRow = oldRows.find(r => predicate(r.item));
+
+      if (oldRow == null) {
+        row = new Row(it, i)
+      }
+      else {
+        row = oldRow;
+        row.templateContext = new NgForOfContext(it, null, null, null);
+        row.actualIndex = i;
+        row.item = it;
+      }
+
+      return row;
+    });
+    this.rowModel.matchedCount = this.rowModel.rows.length;
+  }  
 
   protected readContent() {
     this._rowElements.forEach((el, i) => {
-      let row = this.rows[i];
+      let row = this.rowModel.rows[i];
       row.content = (el.nativeElement as HTMLElement).textContent;
+    })
+  }
+
+
+  protected updateRowsDisplayIndex() {
+    let count = 0;
+    this.rowModel.matchedCount = 0;
+    this.rowModel.rows.forEach((row, i) => {
+      if (row.matched) {
+        row.displayIndex = this.rowModel.matchedCount++;
+      }
     })
   }
 
   protected renderFiltered() {
     let term = this.filter ? this.filter.toLowerCase() : null;
-    let displayIndices = new Map();
 
-    this.rows.forEach((row, i) => {
+    this.rowModel.rows.forEach((row, i) => {
       row.matched = !term || row.content.toLowerCase().match(term) != null;
-
-      if (row.matched) {
-        displayIndices.set(i,  displayIndices.size);
-      }
     })
 
-    this.displayIndices = displayIndices;
+    this.updateRowsDisplayIndex();
     this.updatePageCount();
-    this.stickToSelection();
     
     if (this.hasSelection) {
       let newSelection = this.selection.filter(it => {
         let predicate = this.elementPredicate(it);
-        return this.rows.find(r => {
+        return this.rowModel.rows.find(r => {
           return (!this.keepSelection ? r.matched : true) && predicate(r.item);
         }) != null;
       })
@@ -317,24 +333,44 @@ export class PiTable2Component implements OnChanges {
       }
     }
 
-    this.schedule('page', this.renderPage);
     this.cd.detectChanges();
   }
-
+  
   protected renderSort() {
     if (this.sort != Sort.NONE) {
-      this.rows.sort((a, b) => {
-        return a.content.localeCompare(b.content) * (this.sort == Sort.ASC ? 1 : -1);
-      })
+      let weights = [{
+        col: {},
+        value: 1
+      }];
+
+      this.rowModel.rows.sort((rowA, rowB) => {
+          let score = 0;
+
+          for (let w of weights) {
+              let cellValueA = rowA.content;
+              let cellValueB = rowB.content;
+
+              let comparison = cellValueA < cellValueB
+                  ? -1
+                  : cellValueA > cellValueB
+                      ? 1
+                      : 0;
+
+              score += w.value * (comparison * (this.sort == Sort.ASC ? 1 : -1))
+          }
+
+          return score;
+      });
 
       this.cd.detectChanges();
     }
+    this.updateRowsDisplayIndex();
   }
 
   protected renderSelection() {
     let hasSelection = this.hasSelection;
 
-    this.rows.forEach((row, rowIdx) => {
+    this.rowModel.rows.forEach((row, rowIdx) => {
       let idx = !hasSelection ? -1 : this.findIndexIn(this.selection, row.item);
       row.selected = idx != -1;
 
@@ -350,29 +386,26 @@ export class PiTable2Component implements OnChanges {
   }
 
   protected renderPage() {
-    let displayIndicesArr = Array.from(this.displayIndices.keys());
+    this.stickToSelection();
 
-    if (!this.pagingDisabled) {
-      displayIndicesArr = displayIndicesArr.slice(this.pageInfo.minIndex, this.pageInfo.maxIndex);
-    }
-    
-    this.rows.forEach((row, i) => {    
-      let rowDisplayIdx = this.displayIndices ? this.displayIndices.get(i) : i;
-      let pagedIndex = rowDisplayIdx != null ? displayIndicesArr.findIndex(di => di == i) : -1;
-      let paged = pagedIndex !== -1 && (this.pagingDisabled || this.pageInfo.inRange(rowDisplayIdx));
+    let pagedRows = this.getPagedRows();
+
+    this.rowModel.rows.forEach((row, i) => {    
+      let pagedIndex = pagedRows.findIndex(r => r == row);
+      let paged = pagedIndex != -1;
 
       row.paged = paged;
-
-      // if (!paged) {
-      //   row.templateContext = null;
-      // }
-      // else {
-        row.templateContext.index = pagedIndex;
-        row.templateContext.count = displayIndicesArr.length;
-      // }
+      row.templateContext.index = pagedIndex;
+      row.templateContext.count = pagedRows.length;
     })
 
     this.cd.detectChanges();
+  }
+
+  protected getPagedRows() {
+    return this.rowModel.rows
+      .filter(r => r.matched)
+      .filter((r, i) => this.pagingDisabled || (i >= this.pageInfo.minIndex && i < this.pageInfo.maxIndex));
   }
 
   protected gotoIndex(displayIndex: number) {
