@@ -5,7 +5,7 @@ import { Observable, of } from 'rxjs';
 import { Sort } from './table.component';
 import allData from './data';
 
-const data = JSON.parse(JSON.stringify(allData)).slice(0, 1000);
+const data = JSON.parse(JSON.stringify(allData)).slice(0, 50);
 
 @Component({
   selector: 'my-app',
@@ -26,7 +26,7 @@ export class AppComponent  {
   protected to = 0;
 
   lol() {
-    this.duplicateData = !this.duplicateData;
+    console.log('lol');
   }
 
   changeSort() {

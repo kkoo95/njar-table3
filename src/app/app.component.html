@@ -52,21 +52,47 @@
       </button>
     </div>
 
-    <div #t [piTable2]="items" [filter]="filter" [sort]="sort" [(selection)]="selection" [trackBy]="trackByFn" [(page)]="page" [pageSize]="pageSize" (pageCountChange)="pageCount = $event"
-      class="d-inline-block">
-      <ng-template #piTableRowTemplate let-item let-c="count" let-i="index">
-        <ng-container *ngTemplateOutlet="firstNameView ? firstNameTpl : lastNameTpl; context: {$implicit: item, c: c, i: i}"></ng-container>
-      </ng-template>
+    <div class="table-responsive">
+      <table #t class="table table-dark table-sm" [piTable2]="items" [filter]="filter" [sort]="sort" [(selection)]="selection" [trackBy]="trackByFn" [(page)]="page" [pageSize]="pageSize" (pageCountChange)="pageCount = $event">
+        <ng-template #piTableColumns>
+          <th></th>
+          <th>Index</th>
+          <th>Name</th>
+          <th>Age</th>
+          <th>Active</th>
+        </ng-template>
+        <ng-template #piTableRow let-item let-c="count" let-i="index">
+              <td><small>[{{i}} {{c}}]</small></td>
+              <td>{{item.index}}</td>
+              <td>{{item.name.first}} {{item.name.last}}</td>
+              <td>{{item.age}}</td>
+              <td>{{item.isActive}}</td>
+        </ng-template>
+      </table>
     </div> 
   </section>
 
-  <ng-template #firstNameTpl let-item let-c="c" let-i="i" ngPreserveWhitespaces>
-      <!-- <small>({{i}} {{c}})</small>  -->
-      <span class="">{{item.name.first}} <small>[{{item.index}}]</small></span>
+  <ng-template #firstNameTpl let-item let-c="c" let-i="i">
+    <tr #rowEl>
+        <td><small>[{{i}} {{c}}]</small></td>
+        <td>{{item.index}}</td>
+        <td>{{item.name.first}} {{item.name.last}}</td>
+        <td>{{item.age}}</td>
+        <td>{{item.isActive}}</td>
+    </tr>
   </ng-template>
+  
   <ng-template #lastNameTpl let-item let-c="c" let-i="i" ngPreserveWhitespaces>
-      <!-- <small>({{i}} {{c}})</small>  -->
-      <span class="">{{item.name.last}} <small>[{{item.index}}]</small></span>
+        <tr>
+          <td><small>[{{i}} {{c}}]</small></td>
+          <td colspan="3">
+            <span>[{{item.index}}]</span>
+            <span>{{item.name.first}}</span>
+            <span>{{item.name.last}}</span>
+            <span>{{item.age}}</span>
+          </td>
+          <td>{{item.isActive}}</td>
+        </tr>
   </ng-template>
 
 </main>

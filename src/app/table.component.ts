@@ -1,4 +1,4 @@
-import { Attribute, Directive, ElementRef, Input, Renderer2, TemplateRef, ViewContainerRef, EmbeddedViewRef, Component, ChangeDetectorRef, OnChanges, QueryList, ViewChildren, SimpleChanges, ChangeDetectionStrategy, TrackByFunction, Output, EventEmitter, ContentChild } from "@angular/core";
+import { Attribute, Directive, ElementRef, Input, Renderer2, TemplateRef, ViewContainerRef, EmbeddedViewRef, Component, ChangeDetectorRef, OnChanges, QueryList, ViewChildren, SimpleChanges, ChangeDetectionStrategy, TrackByFunction, Output, EventEmitter, ContentChild, ContentChildren, AfterContentChecked, HostBinding } from "@angular/core";
 import { NgForOfContext } from "@angular/common";
 
 export enum Sort {
@@ -14,8 +14,8 @@ export class Row {
     public actualIndex: number = null,
     public displayIndex: number = null,
     public content: string = null,
-    public matched = false,
-    public paged = false,
+    public matched = true,
+    public paged = true,
     public selected = false,
     public anchor = false,
   ) {
@@ -47,20 +47,27 @@ export class RowModel {
 @Component({
   selector: '[piTable2]',
   template: `
-    <ul>
-      <li #rowEl *ngFor="let row of rows; index as i; trackBy: trackByFn"
-        [hidden]="!row.paged"
-        [class.clickable]="selectable"
-        [class.text-success]="row.selected"
-        [class.text-danger]="row.anchor"
-        (click)="toggleRowsSelection(row)">
-          
-          <ng-container [ngTemplateOutlet]="rowTemplate" [ngTemplateOutletContext]="row.templateContext"></ng-container>
-      </li>
-    </ul>
+    <ng-container>
+      <thead>
+        <tr>
+          <ng-container [ngTemplateOutlet]="columnsTemplate"></ng-container>
+        </tr>
+      </thead>
+      <tbody>
+        <tr #rowEl *ngFor="let row of rows; index as i; trackBy: trackByFn"
+          [class.clickable]="selectable"
+          [class.text-success]="row.selected"
+          [class.text-danger]="row.anchor"
+          (click)="toggleRowsSelection(row)"
+           [hidden]="!row.paged"
+          >
+            <ng-container [ngTemplateOutlet]="rowTemplate" [ngTemplateOutletContext]="row.templateContext"></ng-container>
+        </tr>
+      </tbody>
+    </ng-container>
   `,
   changeDetection: ChangeDetectionStrategy.OnPush
-})
+}) 
 export class PiTable2Component implements OnChanges {
   @Input('piTable2')
   items: any[];
@@ -107,7 +114,9 @@ export class PiTable2Component implements OnChanges {
   protected selectionAnchor: number;
   protected _rowElements: QueryList<ElementRef>
   protected pageInfo: any;
-  @ContentChild('piTableRowTemplate')
+  @ContentChild('piTableColumns')
+  protected columnsTemplate: TemplateRef<ElementRef>;
+  @ContentChild('piTableRow')
   protected rowTemplate: TemplateRef<ElementRef>;
 
   constructor(protected cd: ChangeDetectorRef) {
@@ -152,7 +161,8 @@ export class PiTable2Component implements OnChanges {
   }
 
   ngAfterViewChecked() {
-    // console.log('ngAfterViewChecked');
+    // console.log('ngAfterContentChecked'); 
+    // console.log('ngAfterViewChecked'); 
     this.runTasks();
   }
 
@@ -160,7 +170,7 @@ export class PiTable2Component implements OnChanges {
   set rowElements(value: QueryList<ElementRef>) {
     this._rowElements = value;
   }
-
+ 
   get rows() {
     return this.rowModel.rows;
   }
@@ -171,7 +181,7 @@ export class PiTable2Component implements OnChanges {
       this.tasks[type] = fn.bind(this);
     }
   }
-
+ 
   protected runTasks() {
     let runnable = ['content', 'filter', 'sort', 'selection', 'page'];
     console.log('runTasks', Object.keys(this.tasks).filter(t => runnable.indexOf(t) != -1));
@@ -277,12 +287,13 @@ export class PiTable2Component implements OnChanges {
       let oldRow = oldRows.find(r => predicate(r.item));
 
       if (oldRow == null) {
-        row = new Row(it, i)
+        row = new Row(it, i, i)
       }
       else {
         row = oldRow;
         row.templateContext = new NgForOfContext(it, null, null, null);
         row.actualIndex = i;
+        row.displayIndex = i;
         row.item = it;
       }
 
@@ -298,7 +309,6 @@ export class PiTable2Component implements OnChanges {
     })
   }
 
-
   protected updateRowsDisplayIndex() {
     let count = 0;
     this.rowModel.matchedCount = 0;
@@ -308,32 +318,33 @@ export class PiTable2Component implements OnChanges {
       }
     })
   }
-
+ 
   protected renderFiltered() {
     let term = this.filter ? this.filter.toLowerCase() : null;
 
-    this.rowModel.rows.forEach((row, i) => {
-      row.matched = !term || row.content.toLowerCase().match(term) != null;
-    })
-
-    this.updateRowsDisplayIndex();
-    this.updatePageCount();
-    
-    if (this.hasSelection) {
-      let newSelection = this.selection.filter(it => {
-        let predicate = this.elementPredicate(it);
-        return this.rowModel.rows.find(r => {
-          return (!this.keepSelection ? r.matched : true) && predicate(r.item);
-        }) != null;
+    if (term != null) {
+      this.rowModel.rows.forEach((row, i) => {
+        row.matched = row.content.toLowerCase().match(term) != null;
       })
+      this.updateRowsDisplayIndex();
+      this.updatePageCount();
       
-      if (newSelection.length != this.selection.length) {
-        this.selection = newSelection;
-        this.selectionChange.emit(newSelection);
+      if (this.hasSelection) {
+        let newSelection = this.selection.filter(it => {
+          let predicate = this.elementPredicate(it);
+          return this.rowModel.rows.find(r => {
+            return (!this.keepSelection ? r.matched : true) && predicate(r.item);
+          }) != null;
+        })
+        
+        if (newSelection.length != this.selection.length) {
+          this.selection = newSelection;
+          this.selectionChange.emit(newSelection);
+        }
       }
-    }
 
-    this.cd.detectChanges();
+      this.cd.detectChanges();
+    }
   }
   
   protected renderSort() {
@@ -361,10 +372,10 @@ export class PiTable2Component implements OnChanges {
 
           return score;
       });
+      this.updateRowsDisplayIndex();
 
       this.cd.detectChanges();
     }
-    this.updateRowsDisplayIndex();
   }
 
   protected renderSelection() {
